@@ -21,12 +21,13 @@ source-repository head
 library
   exposed-modules:
       Crypto.History
+  other-modules:
       Crypto.History.Client
       Crypto.History.Cross
       Crypto.History.Types
       Crypto.History.IO
-  other-modules:
       Crypto.History.Parse
+      Crypto.History.Utils
       Paths_crypto_history
   hs-source-dirs:
       src

@@ -1,8 +1,9 @@
-module Crypto.History.Client
-{- (
+module Crypto.History.Client(
     getHistory
+  , getAllTimeHistory
+  , getCoinId
   , listCodes
-) -} where
+) where
 
 
 import Data.Aeson
@@ -105,6 +106,13 @@ listCodesAndIdBy start = do
 
     failedToParse = Left "Failed to parse list of currency tickers"
 
+-- | Gets the coin-id by coin code.
+-- The coin-ids are used internally by coinmarketcap.com to distinguish historical data.
+-- For example we can query the coin-id for ETH:
+--
+-- > Right coinId <- getCoinId (CoinCode "ETH")
+-- > coinId
+-- > CoinId "ethereum"
 getCoinId :: CoinCode -> IO (Maybe CoinId)
 getCoinId (CoinCode sym) = findSlug 1
   where

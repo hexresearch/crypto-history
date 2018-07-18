@@ -17,6 +17,9 @@ import Crypto.History.Types
 
 import qualified Data.Vector as V
 
+-- | Creates cross-history from two histories.
+-- By default all loaded crypto histories are relative to USD.
+-- If we want to relate to other coins we can use this function.
 cross :: History -> History -> History
 cross histA histB = V.fromList $ zipSame (comparing frame'date) relateFrame (V.toList histA) (V.toList histB)
 
@@ -46,5 +49,6 @@ getHistory2 start end (coinA, coinB) = do
   histB <- getHistory start end coinB
   return $ liftA2 cross histA histB
 
+-- | Loads cross history of two coins relative to each other for all history of both coins.
 getAllTimeHistory2 :: (CoinId, CoinId) -> IO (Either Text History)
 getAllTimeHistory2 = getHistory2 Nothing Nothing
