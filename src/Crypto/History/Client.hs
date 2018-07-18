@@ -1,13 +1,14 @@
 module Crypto.History.Client
 {- (
     getHistory
-  , listCurrency
+  , listCodes
 ) -} where
 
 
 import Data.Aeson
 import Data.Char
 import Data.Either
+import Data.Maybe
 import Data.Proxy
 import Data.Text (Text)
 import Data.Time
@@ -19,6 +20,8 @@ import Servant.HTML.Blaze
 import Servant.Client
 
 import Crypto.History.Types
+import Crypto.History.Parse
+
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.List as L
@@ -35,42 +38,40 @@ import qualified Data.Vector as V
 -- example:
 --
 -- > getHistory Nothing Nothing "eth"
-getHistory :: Maybe UTCTime -> Maybe UTCTime -> Text -> IO (Either Text History)
-getHistory mstart mend currencyCode = do
-  mcoinId <- getCurrencyId currencyCode
+getHistory :: Maybe UTCTime -> Maybe UTCTime -> CoinId -> IO (Either Text History)
+getHistory mstart mend (CoinId coinId) = do
   now <- getCurrentTime
-  case mcoinId of
-    Just coinId -> do
-      ehtml <- history coinId (Just $ withDefaultStart now mstart) (Just $ withDefaultEnd mend)
-      return $ case ehtml of
-        Right html -> case getTable html of
-          Just hist -> Right hist
-          Nothing   -> Left "Failed to parse table data from HTML."
-        Left msg   -> Left msg
-    Nothing -> return $ Left $ mconcat ["Coin code ", currencyCode, " is not supported by coinmarketcap.com"]
+  ehtml <- history coinId (Just $ withDefaultStart mstart) (Just $ withDefaultEnd now mend)
+  return $ case ehtml of
+    Right html -> case getTable html of
+      Just hist -> Right hist
+      Nothing   -> Left "Failed to parse table data from HTML."
+    Left msg   -> Left msg
   where
-    withDefaultStart :: UTCTime -> Maybe UTCTime -> Text
-    withDefaultStart now = toTextTime . maybe (toYesturday now) id
+    withDefaultEnd :: UTCTime -> Maybe UTCTime -> Text
+    withDefaultEnd now = toTextTime . maybe (toYesturday now) id
 
-    withDefaultEnd :: Maybe UTCTime -> Text
-    withDefaultEnd = toTextTime . maybe epochStart id
+    withDefaultStart :: Maybe UTCTime -> Text
+    withDefaultStart = toTextTime . maybe epochStart id
 
-    toYesturday t = undefined
-    epochStart    = undefined
+    toYesturday date = date { utctDay = addDays (-1) $ utctDay date }
+    epochStart = fromJust $ parseTimeM True defaultTimeLocale "%F" "2013-01-01"
 
     toTextTime = T.pack . formatTime defaultTimeLocale "%Y%m%d"
 
-
 getTable :: Text -> Maybe History
-getTable htmlTxt = undefined
+getTable txt
+  | V.null hist = Nothing
+  | otherwise   = Just hist
+  where hist = parseHistory $ T.unpack txt
 
 -- | Fetches all time history data for cryptocurrency with given three letter code.
-getAllTimeHistory :: Text -> IO (Either Text History)
+getAllTimeHistory :: CoinId -> IO (Either Text History)
 getAllTimeHistory = getHistory Nothing Nothing
 
 -- | Lists all supported cryptocurrency codes.
 listCodes :: IO [Text]
-listCodes = fmap (fmap coinId'symbol . concat) $ go 1
+listCodes = fmap (fmap (unCoinCode . coinData'symbol) . concat) $ go 1
   where
     go start = do
       xs <- listCodesAndIdBy start
@@ -82,12 +83,12 @@ listCodes = fmap (fmap coinId'symbol . concat) $ go 1
             putStrLn $ mconcat ["Loaded so far: ", show start]
             fmap (as : ) $ go (start + 100)
 
-data CoinId = CoinId
-  { coinId'symbol       :: Text
-  , coinId'website_slug :: Text
+data CoinData = CoinData
+  { coinData'symbol       :: CoinCode
+  , coinData'website_slug :: CoinId
   } deriving (Show, Eq)
 
-listCodesAndIdBy :: Int -> IO [CoinId]
+listCodesAndIdBy :: Int -> IO [CoinData]
 listCodesAndIdBy start = do
   eResp <- ticker (Just "id") (Just start) (Just 100)
   return $ fromRight [] $ parseIds =<< eResp
@@ -99,13 +100,13 @@ listCodesAndIdBy start = do
 
     getSymbol val = case val of
       A.Object obj -> case (M.lookup "symbol" obj, M.lookup "website_slug" obj) of
-          (Just (A.String sym), Just (A.String slug)) -> pure $ CoinId sym slug
+          (Just (A.String sym), Just (A.String slug)) -> pure $ CoinData (CoinCode sym) (CoinId slug)
           _                                           -> failedToParse
 
     failedToParse = Left "Failed to parse list of currency tickers"
 
-getCurrencyId :: Text -> IO (Maybe Text)
-getCurrencyId sym = findSlug 1
+getCoinId :: CoinCode -> IO (Maybe CoinId)
+getCoinId (CoinCode sym) = findSlug 1
   where
     findSlug start = do
       xs <- listCodesAndIdBy start
@@ -113,11 +114,11 @@ getCurrencyId sym = findSlug 1
         [] -> do
             return Nothing
         as -> do
-            case L.find ((== normSym) . coinId'symbol) as of
-              Just res -> return $ Just $ coinId'website_slug res
+            case L.find ((== normSym) . coinData'symbol) as of
+              Just res -> return $ Just $ coinData'website_slug res
               Nothing  -> findSlug (start + 100)
 
-    normSym = T.map toUpper sym
+    normSym = CoinCode $ T.map toUpper sym
 
 ---------------------------
 -- API

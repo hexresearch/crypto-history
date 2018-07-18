@@ -20,9 +20,13 @@ source-repository head
 
 library
   exposed-modules:
+      Crypto.History
       Crypto.History.Client
+      Crypto.History.Cross
       Crypto.History.Types
+      Crypto.History.IO
   other-modules:
+      Crypto.History.Parse
       Paths_crypto_history
   hs-source-dirs:
       src
@@ -36,20 +40,25 @@ library
     , http-client-tls
     , scientific
     , network
+    , safe
     , servant
     , servant-blaze
     , servant-client
+    , tagsoup
     , text
     , time
     , vector
     , unordered-containers
   default-language: Haskell2010
   default-extensions:
+    DataKinds
+    FlexibleInstances
+    MultiParamTypeClasses
     OverloadedStrings
     RecordWildCards
-    DataKinds
     TypeOperators
-    MultiParamTypeClasses
+    TypeSynonymInstances
+
 
 test-suite crypto-history-test
   type: exitcode-stdio-1.0
