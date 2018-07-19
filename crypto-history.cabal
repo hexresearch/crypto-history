@@ -36,7 +36,6 @@ library
     , aeson
     , bytestring
     , cassava
-    , html-parse
     , http-client
     , http-client-tls
     , scientific
