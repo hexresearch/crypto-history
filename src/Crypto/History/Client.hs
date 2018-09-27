@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 module Crypto.History.Client(
     getHistory
   , getAllTimeHistory
@@ -13,7 +14,7 @@ import Data.Maybe
 import Data.Proxy
 import Data.Text (Text)
 import Data.Time
-import Network.HTTP.Client (newManager)
+import Network.HTTP.Client (newManager, Manager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Servant.API
 import Servant.API.ContentTypes
@@ -162,20 +163,27 @@ history' :: Text -> Maybe Text -> Maybe Text -> ClientM Text
 
 ticker' :<|> history' = client (Proxy :: Proxy CoinMarketAPI)
 
+makeEnv :: Manager -> String -> ClientEnv
+makeEnv manager url =
+#if MIN_VERSION_servant_client(0,14,0)
+  ClientEnv manager (BaseUrl Https url 443 "") Nothing
+#else
+  ClientEnv manager (BaseUrl Https url 443 "")
+#endif
+
 run :: ClientM a -> IO (Either Text a)
 run go = do
   manager' <- newManager tlsManagerSettings
-  res <- runClientM go (ClientEnv manager' (BaseUrl Https "api.coinmarketcap.com" 443 ""))
+  res <- runClientM go $ makeEnv manager' "api.coinmarketcap.com"
   return $ either (Left . T.pack . show) Right res
 
 runPage :: ClientM a -> IO (Either Text a)
 runPage go = do
   manager' <- newManager tlsManagerSettings
-  res <- runClientM go (ClientEnv manager' (BaseUrl Https "coinmarketcap.com" 443 ""))
+  res <- runClientM go $ makeEnv manager' "coinmarketcap.com"
   return $ either (Left . T.pack . show) Right res
 
 --------------------------
 
 instance MimeUnrender HTML Text where
   mimeUnrender _ bs = Right $ T.decodeUtf8 $ LB.toStrict bs
-
