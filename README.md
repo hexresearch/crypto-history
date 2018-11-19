@@ -46,5 +46,5 @@ We can save and load the data to/from CSV files:
 > Just hist <- readHistory "file.csv"
 ```
 
-
+The function `readHistory` - reads data strictly. For lazy reading we can use `readHistoryLazy`.
 
