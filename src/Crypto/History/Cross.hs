@@ -37,7 +37,9 @@ zipSame cmp f xs ys = case (xs, ys) of
 
 relateFrame :: Frame -> Frame -> Frame
 relateFrame (Frame dateA openA highA lowA closeA volumeA marketCapA) (Frame dateB openB highB lowB closeB volumeB marketCapB) =
-    Frame dateA (openA / openB) (highA / highB) (lowA / lowB) (closeA / closeB) volumeA marketCapA
+    Frame dateA (rateAB * openA) (rateAB * highA) (rateAB * lowA) (rateAB * closeA) volumeA marketCapA
+    where
+      rateAB = 1 / closeB
 
 ----------------------------------
 -- client liftings
