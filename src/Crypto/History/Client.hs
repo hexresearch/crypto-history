@@ -114,17 +114,17 @@ listCodesAndIdBy start = do
 -- > Right coinId <- getCoinId (CoinCode "ETH")
 -- > coinId
 -- > CoinId "ethereum"
-getCoinId :: CoinCode -> IO (Maybe CoinId)
+getCoinId :: CoinCode -> IO (Either Text CoinId)
 getCoinId (CoinCode sym) = findSlug 1
   where
     findSlug start = do
       xs <- listCodesAndIdBy start
       case xs of
         [] -> do
-            return Nothing
+            return $ Left "No coin-id found for this code."
         as -> do
             case L.find ((== normSym) . coinData'symbol) as of
-              Just res -> return $ Just $ coinData'website_slug res
+              Just res -> return $ Right $ coinData'website_slug res
               Nothing  -> findSlug (start + 100)
 
     normSym = CoinCode $ T.map toUpper sym
